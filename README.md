@@ -9,10 +9,29 @@ _✨ 自动解析流媒体平台链接，转换为媒体直链发送 ✨_
 [![License](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-orange.svg)](https://github.com/AstrBotDevs/AstrBot)
-[![Version](https://img.shields.io/badge/Version-v7.0.0-green.svg)](https://github.com/drdon1234/astrbot_plugin_media_parser)
-[![GitHub](https://img.shields.io/badge/作者-drdon1234-blue)](https://github.com/drdon1234)
+[![Version](https://img.shields.io/badge/Version-v7.0.0-green.svg)](https://github.com/xiaoxi2760/astrbot_plugin_media_parser_yaya)
+[![GitHub](https://img.shields.io/badge/作者-xiaoxi2760-blue)](https://github.com/xiaoxi2760)
 
 </div>
+
+---
+
+## 🎀 娅娅改版特色
+
+本仓库是 [astrbot_plugin_media_parser](https://github.com/drdon1234/astrbot_plugin_media_parser) 的个人改版「娅娅」，基于 v7.0.0 重建并保留全部上游能力，主要改动：
+
+- 🎴 **卡片渲染**：移植 [astrbot_plugin_rika_share](https://github.com/iris1598/astrbot_plugin_rika_share) 的卡片渲染器，将标题、作者、封面、统计等信息渲染为图片卡片，支持 `标准` / `杂志` / `沉浸式` / `信息流` 四种布局与深/浅主题（在 `消息输出 → 附加内容：卡片渲染` 中配置）；B站卡片内置播放/点赞/投币/收藏/转发/评论/弹幕等统计药丸与简洁 BV 号展示，封面下载失败时自动使用内置兜底背景，修改视觉样式后会自动失效旧缓存并重渲染
+- 💧 **修复小红书移动端水印**：移动端分享链接解析结果不再带水印
+- 🍪 **B站 Cookie 高画质解析与管理员协助登录**、🔁 **媒体中转模式** 等均随上游 v7.0.0 同步
+
+示意卡片：
+
+<p align="center">
+  <img src="docs/images/card_standard.jpg" width="48%" alt="标准布局卡片">
+  <img src="docs/images/card_immersive.jpg" width="48%" alt="沉浸式布局卡片">
+</p>
+
+> 卡片渲染移植自 [astrbot_plugin_rika_share](https://github.com/iris1598/astrbot_plugin_rika_share)（MIT License），其底层基于 [nonebot-plugin-parser](https://github.com/maoxig/nonebot-plugin-parser) 的 CommonRenderer，保留原始许可声明。
 
 ---
 
@@ -283,6 +302,7 @@ Cookie 仅用于访问 Pixiv，不会写入日志或发送到消息平台。Cook
 - [tianger-mckz](https://github.com/drdon1234/astrbot_plugin_bilibili_bot/issues/1#issuecomment-3517087034) | [ScryAbu](https://github.com/drdon1234/astrbot_plugin_media_parser/issues/16#issuecomment-3726729850) | [WWWA7](https://github.com/drdon1234/astrbot_plugin_media_parser/pull/17#issue-3799325283) - QQ小程序卡片链接提取方法
 - [CSDN 博客](https://blog.csdn.net/qq_53153535/article/details/141297614) - 抖音解析方法
 - [astrbot_plugin_media_parser_yaya](https://github.com/xiaoxi2760/astrbot_plugin_media_parser_yaya) - 抖音备用解析方式与小红书无水印解析方式的参考实现
+- [astrbot_plugin_rika_share](https://github.com/iris1598/astrbot_plugin_rika_share) - 卡片渲染器移植来源（MIT License）
 - [Johnserf-Seed/f2](https://github.com/Johnserf-Seed/f2) - 抖音 `a_bogus` 签名实现来源；移植部分遵循 Apache-2.0，完整文本见 `LICENSES/Apache-2.0.txt`
 
 ## 🤝 社区贡献与扩展

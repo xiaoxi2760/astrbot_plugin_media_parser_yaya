@@ -52,7 +52,9 @@ class ShortVideoParserMixin:
             timestamp = int(timestamp_value)
             if timestamp > 10 ** 12:
                 timestamp //= 1000
-            return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d")
+            return datetime.fromtimestamp(timestamp).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         except (TypeError, ValueError, OSError):
             return ""
 

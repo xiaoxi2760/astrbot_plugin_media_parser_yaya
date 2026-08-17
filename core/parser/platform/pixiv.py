@@ -320,6 +320,7 @@ class PixivParser(BaseVideoParser):
             "source_url": url,
             "title": title,
             "author": user_name,
+            "avatar_url": self._extract_avatar_url(body),
             "platform": "pixiv",
             "parser_name": "pixiv",
             "desc": desc,

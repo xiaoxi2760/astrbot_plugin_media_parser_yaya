@@ -358,6 +358,7 @@ class WeiboParser(BaseVideoParser):
         timestamp: str,
         video_urls: List[List[str]],
         image_urls: List[List[str]],
+        avatar_url: str = "",
     ) -> Dict[str, Any]:
         """构建解析结果字典
 
@@ -385,15 +386,16 @@ class WeiboParser(BaseVideoParser):
             is_video=True, referer=referer, user_agent=user_agent
         )
         result = {
-            "url": url,
-            "title": "",
-            "author": author,
-            "desc": desc,
-            "timestamp": timestamp,
-            "video_urls": video_urls,
-            "image_urls": image_urls,
-            "image_headers": image_headers,
-            "video_headers": video_headers,
+            'url': url,
+            'title': '',
+            'author': author,
+            'avatar_url': avatar_url,
+            'desc': desc,
+            'timestamp': timestamp,
+            'video_urls': video_urls,
+            'image_urls': image_urls,
+            'image_headers': image_headers,
+            'video_headers': video_headers,
         }
         if video_urls:
             result["video_force_download"] = True
@@ -637,12 +639,14 @@ class WeiboParser(BaseVideoParser):
                 screen_name = user.get("screen_name", "")
                 user_id = user.get("id", "")
                 author = self._format_author(screen_name, user_id)
+                avatar_url = self._extract_avatar_url(user)
 
                 video_urls, image_urls = self._separate_media_urls(media_urls)
                 status_id = str(json_data.get("id") or json_data.get("mid") or page_id)
                 uid = str(user_id or "")
                 result = self._build_result_dict(
-                    url, author, clean_text, formatted_timestamp, video_urls, image_urls
+                    url, author, clean_text, formatted_timestamp,
+                    video_urls, image_urls, avatar_url
                 )
                 await self._attach_hot_comments_to_result(
                     session=session,
@@ -719,6 +723,7 @@ class WeiboParser(BaseVideoParser):
                             screen_name = user.get("screen_name", "")
                             user_id = user.get("id", "")
                             author = self._format_author(screen_name, user_id)
+                            avatar_url = self._extract_avatar_url(user)
 
                             video_urls, image_urls = self._separate_media_urls(
                                 media_urls
@@ -728,12 +733,8 @@ class WeiboParser(BaseVideoParser):
                             )
                             uid = str(user_id or "")
                             result = self._build_result_dict(
-                                url,
-                                author,
-                                clean_text,
-                                formatted_timestamp,
-                                video_urls,
-                                image_urls,
+                                url, author, clean_text, formatted_timestamp,
+                                video_urls, image_urls, avatar_url
                             )
                             await self._attach_hot_comments_to_result(
                                 session=session,
@@ -809,12 +810,13 @@ class WeiboParser(BaseVideoParser):
                     playinfo_user = {}
                 user_id = playinfo.get("author_id", "") or playinfo_user.get("id", "")
                 author = self._format_author(screen_name, user_id)
+                avatar_url = self._extract_avatar_url(playinfo)
 
                 video_urls, image_urls = self._separate_media_urls(media_urls)
                 status_id = str(playinfo.get("mid") or "")
                 uid = str(user_id or "")
                 result = self._build_result_dict(
-                    url, author, desc, "", video_urls, image_urls
+                    url, author, desc, '', video_urls, image_urls, avatar_url
                 )
                 await self._attach_hot_comments_to_result(
                     session=session,
@@ -1034,7 +1036,7 @@ class WeiboParser(BaseVideoParser):
         """
         try:
             dt = datetime.strptime(created_at, "%a %b %d %H:%M:%S %z %Y")
-            return dt.strftime("%Y-%m-%d")
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
         except Exception:
             return created_at if created_at else ""
 

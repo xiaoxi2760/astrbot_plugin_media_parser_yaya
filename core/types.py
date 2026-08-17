@@ -14,6 +14,7 @@ class MediaMetadata(TypedDict, total=False):
     source_url: str
     title: str
     author: str
+    avatar_url: str
     desc: str
     _translated_fields: Dict[str, str]
     timestamp: str

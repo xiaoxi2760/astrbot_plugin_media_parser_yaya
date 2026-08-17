@@ -1,7 +1,24 @@
 name: astrbot_plugin_media_parser
-desc: 聚合解析流媒体平台链接，转换为媒体直链发送
-version: 7.0.0
-astrbot_version: ">=4,<5"
-author: drdon1234
-repo: https://github.com/drdon1234/astrbot_plugin_media_parser
+display_name: "娅娅视频解析"
+short_desc: 娅娅视频解析 - 聚合解析流媒体平台链接，转换为媒体直链发送
+desc: |
+  # 娅娅视频解析
 
+  自动解析 B站、抖音、快手、微博、小红书、闲鱼、今日头条、小黑盒、Twitter/X、Pixiv 等流媒体平台链接，转换为媒体直链发送。
+
+  ## 特色
+
+  - 🎴 rika 风格卡片渲染：四种布局、深/浅主题、统计药丸、BV 号简洁展示、封面失败自动兜底
+  - 💧 修复小红书移动端水印
+  - 🍪 B站 Cookie 高画质解析与管理员协助登录
+  - 🔁 媒体中转模式、消息打包、文本翻译、热评
+version: v7.0.0
+astrbot_version: ">=4.25.0"
+author: xiaoxi2760
+repo: https://github.com/xiaoxi2760/astrbot_plugin_media_parser_yaya
+social_link: https://github.com/xiaoxi2760
+tags:
+  - 视频解析
+  - 媒体解析
+  - bilibili
+  - 卡片渲染

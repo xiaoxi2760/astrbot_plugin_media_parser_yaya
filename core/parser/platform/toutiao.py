@@ -370,7 +370,9 @@ class ToutiaoParser(BaseVideoParser):
             timestamp = int(timestamp_value)
             if timestamp > 10**12:
                 timestamp //= 1000
-            return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d")
+            return datetime.fromtimestamp(timestamp).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         except (TypeError, ValueError, OSError):
             return ""
 
@@ -575,6 +577,7 @@ class ToutiaoParser(BaseVideoParser):
             "source_url": source_url,
             "title": title,
             "author": self._format_author(article_info),
+            "avatar_url": self._extract_avatar_url(article_info),
             "desc": self._clean_html_text(content_html),
             "timestamp": self._format_timestamp(
                 self._first_non_empty(
@@ -684,6 +687,7 @@ class ToutiaoParser(BaseVideoParser):
             "source_url": source_url,
             "title": title,
             "author": self._format_author(article_info),
+            "avatar_url": self._extract_avatar_url(article_info),
             "desc": self._clean_html_text(str(article_info.get("content") or "")),
             "timestamp": self._format_timestamp(article_info.get("publishTime")),
             "video_urls": self._collect_video_urls(vod_payload),

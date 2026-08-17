@@ -1215,6 +1215,7 @@ class XiaoheiheParser(BaseVideoParser):
             "url": url,
             "title": title,
             "author": author,
+            "avatar_url": self._extract_avatar_url(link),
             "desc": desc,
             "timestamp": "",
             "video_urls": video_urls,

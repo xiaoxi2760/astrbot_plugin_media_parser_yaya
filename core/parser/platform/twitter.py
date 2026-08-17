@@ -144,18 +144,24 @@ class TwitterParser(BaseVideoParser):
         tweet_text = self._twitter_text(tweet)
         author_info = tweet.get("author", {})
         author = self._fxtwitter_author(author_info)
-        timestamp = self._parse_twitter_date(tweet.get("created_at"))
-        quote = self._extract_fxtwitter_quote(tweet.get("quote"))
+        avatar_url = self._extract_avatar_url(author_info)
+        timestamp = self._parse_twitter_date(tweet.get('created_at'))
+        quote = self._extract_fxtwitter_quote(tweet.get('quote'))
         desc = self._build_tweet_desc(tweet_text, quote)
 
         media_urls = {
-            "images": [],
-            "videos": [],
-            "title": f"{author} 的推文" if author else "Twitter 推文",
-            "text": desc,
-            "author": self._combine_parenthetical(author, quote.get("author", "")),
-            "timestamp": self._combine_parenthetical(
-                timestamp, quote.get("timestamp", "")
+            'images': [],
+            'videos': [],
+            'title': f"{author} 的推文" if author else "Twitter 推文",
+            'text': desc,
+            'author': self._combine_parenthetical(
+                author,
+                quote.get("author", "")
+            ),
+            'avatar_url': avatar_url,
+            'timestamp': self._combine_parenthetical(
+                timestamp,
+                quote.get("timestamp", "")
             ),
         }
 
@@ -217,8 +223,8 @@ class TwitterParser(BaseVideoParser):
         if not created_at:
             return ""
         try:
-            dt = datetime.strptime(str(created_at), "%a %b %d %H:%M:%S %z %Y")
-            return dt.strftime("%Y-%m-%d")
+            dt = datetime.strptime(str(created_at), '%a %b %d %H:%M:%S %z %Y')
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
         except Exception:
             return str(created_at)
 
@@ -381,13 +387,19 @@ class TwitterParser(BaseVideoParser):
 
         legacy = tweet.get("legacy") or {}
         author = self._graphql_author(tweet)
+        user_core = tweet.get("core") or {}
+        user_result = (
+            ((user_core.get("user_results") or {}).get("result") or {})
+            if isinstance(user_core, dict) else {}
+        )
+        avatar_url = self._extract_avatar_url(user_result)
 
         timestamp = ""
         created_at = legacy.get("created_at")
         if created_at:
             try:
-                dt = datetime.strptime(created_at, "%a %b %d %H:%M:%S %z %Y")
-                timestamp = dt.strftime("%Y-%m-%d")
+                dt = datetime.strptime(created_at, '%a %b %d %H:%M:%S %z %Y')
+                timestamp = dt.strftime('%Y-%m-%d %H:%M:%S')
             except Exception:
                 timestamp = str(created_at)
 
@@ -416,7 +428,11 @@ class TwitterParser(BaseVideoParser):
             "videos": videos,
             "title": f"{author} 的推文" if author else "Twitter 推文",
             "text": desc,
-            "author": self._combine_parenthetical(author, quote.get("author", "")),
+            "author": self._combine_parenthetical(
+                author,
+                quote.get("author", "")
+            ),
+            "avatar_url": avatar_url,
             "timestamp": self._combine_parenthetical(
                 timestamp, quote.get("timestamp", "")
             ),
@@ -644,6 +660,7 @@ class TwitterParser(BaseVideoParser):
                 "url": url,
                 "title": title or (f"{author} 的推文" if author else "Twitter 推文"),
                 "author": author,
+                "avatar_url": avatar_url,
                 "desc": text,
                 "timestamp": timestamp,
                 "image_headers": image_headers,

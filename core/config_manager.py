@@ -58,6 +58,16 @@ OUTPUT_MODE_ALL = "全部发送"
 OUTPUT_MODE_TEXT_ONLY = "仅文本"
 OUTPUT_MODE_RICH_ONLY = "仅富媒体"
 
+CARD_MODE_COMBINED = "卡片+文本同条发送"
+CARD_MODE_SPLIT = "卡片+文本分开发"
+CARD_MODE_ONLY = "仅卡片"
+CARD_MODES = {
+    CARD_MODE_COMBINED,
+    CARD_MODE_SPLIT,
+    CARD_MODE_ONLY,
+}
+
+
 OUTPUT_MODE_FLAGS = {
     OUTPUT_MODE_DISABLED: (False, False),
     OUTPUT_MODE_ALL: (True, True),
@@ -271,6 +281,28 @@ class HotCommentConfig:
 
 
 @dataclass
+class CardRenderConfig:
+    """卡片渲染（移植自 nonebot-plugin-parser）"""
+
+    enabled: bool = False
+    mode: str = CARD_MODE_COMBINED
+    custom_font: str = ""
+    save_dir: str = ""
+    theme: str = "dark"
+    layout: str = "standard"
+    width: int = 800
+    cover_full_size: bool = False
+    show_play_button: bool = False
+
+    def include_text_in_card(self) -> bool:
+        """文本是否并入卡片图所在的那条消息。"""
+        return self.mode == CARD_MODE_COMBINED
+
+    def drop_text(self) -> bool:
+        """仅卡片模式下丢弃文本元数据。"""
+        return self.mode == CARD_MODE_ONLY
+
+@dataclass
 class MessageConfig:
     opening: OpeningMessageConfig = field(default_factory=OpeningMessageConfig)
     aggregation: AggregationConfig = field(default_factory=AggregationConfig)
@@ -278,6 +310,7 @@ class MessageConfig:
     media_display: MediaDisplayConfig = field(default_factory=MediaDisplayConfig)
     text_metadata: TextMetadataConfig = field(default_factory=TextMetadataConfig)
     hot_comments: HotCommentConfig = field(default_factory=HotCommentConfig)
+    card_render: CardRenderConfig = field(default_factory=CardRenderConfig)
 
 
 @dataclass
@@ -520,6 +553,7 @@ class ConfigManager:
         text_metadata = self._as_dict(message_raw.get("text_metadata"))
         media_display = self._as_dict(message_raw.get("media_display"))
         hot_comments = self._as_dict(message_raw.get("hot_comments"))
+        card_render = self._as_dict(message_raw.get("card_render"))
         aggregation_thresholds = self._as_dict(aggregation.get("thresholds"))
 
         hot_count = self._parse_non_negative_int(hot_comments.get("count", 0), 0)
@@ -624,6 +658,30 @@ class ConfigManager:
                     hot_comments.get("xiaohongshu", True),
                     True,
                     "message.hot_comments.xiaohongshu",
+                ),
+            ),
+            card_render=CardRenderConfig(
+                enabled=bool(card_render.get("enable", False)),
+                mode=self._parse_card_mode(
+                    card_render.get("mode", CARD_MODE_COMBINED)
+                ),
+                custom_font=str(
+                    card_render.get("custom_font", "") or ""
+                ).strip(),
+                theme=self._parse_card_theme(
+                    card_render.get("theme", "dark")
+                ),
+                layout=self._parse_card_layout(
+                    card_render.get("layout", "standard")
+                ),
+                width=self._parse_card_width(
+                    card_render.get("width", 800)
+                ),
+                cover_full_size=bool(
+                    card_render.get("cover_full_size", False)
+                ),
+                show_play_button=bool(
+                    card_render.get("show_play_button", False)
                 ),
             ),
         )
@@ -795,6 +853,12 @@ class ConfigManager:
             cache_dir=cache_dir,
             cache_dir_available=cache_dir_available,
             max_concurrent_downloads=max_concurrent,
+        )
+
+        self.message.card_render.save_dir = (
+            Config.build_runtime_dir(cache_dir, "cards")
+            if cache_dir
+            else ""
         )
 
         # --- parse_rate_limit ---
@@ -1083,6 +1147,42 @@ class ConfigManager:
         if mode:
             logger.warning(f"无效的消息聚合模式 {mode!r}，已禁用聚合")
         return AGGREGATION_MODE_NONE
+
+    @staticmethod
+    def _parse_card_mode(value) -> str:
+        mode = str(value or "").strip()
+        if mode in CARD_MODES:
+            return mode
+        return CARD_MODE_COMBINED
+
+    @staticmethod
+    def _parse_card_width(value) -> int:
+        try:
+            return max(520, min(1080, int(value)))
+        except (TypeError, ValueError):
+            return 800
+
+    @staticmethod
+    def _parse_card_theme(value) -> str:
+        theme = str(value or "").strip().lower()
+        if theme in ("light", "浅色", "浅"):
+            return "light"
+        if theme in ("dark", "深色", "深"):
+            return "dark"
+        return "dark"
+
+    @staticmethod
+    def _parse_card_layout(value) -> str:
+        layout = str(value or "").strip().lower()
+        if layout in ("magazine", "杂志"):
+            return "magazine"
+        if layout in ("immersive", "沉浸", "沉浸式"):
+            return "immersive"
+        if layout in ("feed", "信息流"):
+            return "feed"
+        if layout in ("standard", "标准"):
+            return "standard"
+        return "standard"
 
     @staticmethod
     def _parse_translation_target_language(value) -> str:

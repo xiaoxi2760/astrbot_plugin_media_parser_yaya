@@ -1,4 +1,4 @@
 aiohttp>=3.12,<4
 cryptography>=43,<51
 qrcode[pil]>=8.0,<9
-
+pillow

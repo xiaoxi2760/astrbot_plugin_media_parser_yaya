@@ -42,8 +42,8 @@ from .core.interaction.platform.bilibili import BilibiliAdminCookieAssistManager
 
 @register(
     "astrbot_plugin_media_parser",
-    "drdon1234",
-    "聚合解析流媒体平台链接，转换为媒体直链发送",
+    "xiaoxi2760",
+    "娅娅视频解析 - 聚合解析流媒体平台链接，转换为媒体直链发送",
     "7.0.0",
 )
 class VideoParserPlugin(Star):
@@ -420,6 +420,48 @@ class VideoParserPlugin(Star):
                     files.append(path_text)
         return files
 
+    async def _render_cards(self, metadata_list) -> None:
+        """按配置将文本元数据渲染为卡片图片，失败时保留原文本输出。"""
+        card_cfg = self.config_manager.message.card_render
+        if not card_cfg.enabled or not card_cfg.save_dir:
+            return
+
+        try:
+            from .core.render import render_card
+        except Exception as e:
+            self.logger.warning(f"卡片渲染模块不可用，已回退纯文本: {e}")
+            return
+
+        async def render_one(metadata: Dict[str, Any]) -> None:
+            if (
+                metadata.get('error') or
+                not metadata.get("_enable_text_metadata", True)
+            ):
+                return
+            path = await render_card(
+                metadata,
+                save_dir=card_cfg.save_dir,
+                custom_font=card_cfg.custom_font,
+                theme=card_cfg.theme,
+                layout=card_cfg.layout,
+                width=card_cfg.width,
+                cover_full_size=card_cfg.cover_full_size,
+                show_play_button=card_cfg.show_play_button,
+            )
+            if path:
+                metadata["_card_file_path"] = str(path)
+                metadata["_card_include_text"] = card_cfg.include_text_in_card()
+                metadata["_card_drop_text"] = card_cfg.drop_text()
+
+        tasks = [
+            asyncio.create_task(render_one(metadata))
+            for metadata in metadata_list
+        ]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    @staticmethod
+
     async def _process_and_send_metadata(
         self,
         *,
@@ -443,6 +485,7 @@ class VideoParserPlugin(Star):
         build_result = None
         processed_metadata_list = metadata_list
         relay_registered = False
+        card_files: list = []
 
         try:
             should_process_rich_media = any(
@@ -547,6 +590,14 @@ class VideoParserPlugin(Star):
                     bool(metadata.get("use_file_token_service"))
                     for metadata in processed_metadata_list
                 )
+
+            # --- 卡片渲染 -------------------------------------------------
+
+            await self._render_cards(processed_metadata_list)
+            card_files = await self.message_sender.send_rendered_cards(
+                event,
+                processed_metadata_list,
+            )
 
             build_result = build_all_nodes(
                 processed_metadata_list,
@@ -660,6 +711,7 @@ class VideoParserPlugin(Star):
                     self._collect_metadata_files(processed_metadata_list),
                     build_temp_files,
                     build_video_files,
+                    card_files,
                 )
                 if all_files:
                     if relay_registered and not zip_requested:

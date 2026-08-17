@@ -20,6 +20,69 @@ class BaseVideoParser(ABC):
         self.name = name
         self.logger = logger
 
+
+    @staticmethod
+    def _extract_avatar_url(value, depth: int = 0) -> str:
+        """Extract an author avatar URL from platform response data."""
+        if depth > 6 or value is None:
+            return ""
+
+        def normalize(candidate) -> str:
+            if not isinstance(candidate, str):
+                return ""
+            candidate = candidate.strip()
+            if candidate.startswith("//"):
+                return "https:" + candidate
+            if candidate.startswith(("http://", "https://")):
+                return candidate
+            return ""
+
+        def find_url(candidate, nested_depth: int = 0) -> str:
+            if nested_depth > 4 or candidate is None:
+                return ""
+            direct = normalize(candidate)
+            if direct:
+                return direct
+            if isinstance(candidate, list):
+                for item in candidate:
+                    if found := find_url(item, nested_depth + 1):
+                        return found
+            elif isinstance(candidate, dict):
+                for key in (
+                    "url_list", "urlList", "urls", "url", "src", "uri",
+                    "image_url", "imageUrl", "downloadUrl",
+                ):
+                    if found := find_url(candidate.get(key), nested_depth + 1):
+                        return found
+            return ""
+
+        avatar_keys = {
+            "avatar", "avatar_url", "avatarUrl", "avatar_thumb",
+            "avatarThumb", "avatar_medium", "avatarMedium", "avatar_larger",
+            "avatarLarger", "head_url", "headUrl", "head_img", "headImg",
+            "head_portrait", "headPortrait", "profile_image_url",
+            "profileImageUrl", "profile_image_url_https", "userAvatar",
+            "user_avatar", "userHead", "user_head", "face",
+        }
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in avatar_keys:
+                    if found := find_url(item):
+                        return found
+            for item in value.values():
+                if found := BaseVideoParser._extract_avatar_url(
+                    item, depth + 1
+                ):
+                    return found
+        elif isinstance(value, list):
+            for item in value:
+                if found := BaseVideoParser._extract_avatar_url(
+                    item, depth + 1
+                ):
+                    return found
+        return ""
+
+
     @abstractmethod
     def can_parse(self, url: str) -> bool:
         """判断是否可以解析此URL

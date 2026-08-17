@@ -2,7 +2,9 @@
 
 import asyncio
 import json
+import random
 import re
+import string
 from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs, urljoin, urlparse
 
@@ -424,6 +426,7 @@ class DouyinParser(ShortVideoParserMixin, BaseVideoParser):
         author_info = item_info.get("author", {})
         nickname = author_info.get("nickname", "")
         unique_id = author_info.get("unique_id", "")
+        avatar_url = self._extract_avatar_url(author_info)
         (
             video_url_lists,
             image_url_lists,
@@ -433,6 +436,7 @@ class DouyinParser(ShortVideoParserMixin, BaseVideoParser):
         return {
             "title": item_info.get("desc", ""),
             "author": self._build_douyin_author(nickname, unique_id),
+            "avatar_url": avatar_url,
             "timestamp": self._format_timestamp(item_info.get("create_time")),
             "video_url_lists": video_url_lists,
             "video_url_list": video_url_lists[0] if video_url_lists else [],
@@ -527,7 +531,6 @@ class DouyinParser(ShortVideoParserMixin, BaseVideoParser):
             return None
 
         return self._build_douyin_result_from_item(item_info)
-
     async def fetch_douyin_info(
         self,
         session: aiohttp.ClientSession,
@@ -741,6 +744,7 @@ class DouyinParser(ShortVideoParserMixin, BaseVideoParser):
                     video_url_lists = [video_url_list]
             title = result.get("title", "")
             author = result.get("author", "")
+            avatar_url = result.get("avatar_url", "")
             timestamp = result.get("timestamp", "")
             display_url = result.get("display_url", url)
             user_agent = result.get("user_agent", DOUYIN_USER_AGENT)
@@ -754,6 +758,7 @@ class DouyinParser(ShortVideoParserMixin, BaseVideoParser):
                     "url": display_url,
                     "title": title,
                     "author": author,
+                    "avatar_url": avatar_url,
                     "desc": "",
                     "timestamp": timestamp,
                     "platform": "douyin",
@@ -773,6 +778,7 @@ class DouyinParser(ShortVideoParserMixin, BaseVideoParser):
                 "url": display_url,
                 "title": title,
                 "author": author,
+                "avatar_url": avatar_url,
                 "desc": "",
                 "timestamp": timestamp,
                 "platform": "douyin",

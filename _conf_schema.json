@@ -258,6 +258,76 @@
                     }
                 }
             },
+            "card_render": {
+                "description": "附加内容：卡片渲染",
+                "type": "object",
+                "hint": "将标题/作者/正文等信息渲染为卡片图片，与文本同条发送（QQ 风格）；关闭时保持纯文本模式。",
+                "items": {
+                    "enable": {
+                        "description": "启用卡片渲染",
+                        "type": "bool",
+                        "hint": "依赖 pillow 与 emoji 库；渲染失败自动回退纯文本",
+                        "default": false
+                    },
+                    "mode": {
+                        "description": "卡片模式",
+                        "type": "string",
+                        "options": [
+                            "卡片+文本同条发送",
+                            "卡片+文本分开发",
+                            "仅卡片"
+                        ],
+                        "hint": "卡片+文本同条发送：卡片图与文本放在同一条消息；卡片+文本分开发：卡片图单独一条，文本照常分开发；仅卡片：只发卡片图，链接仍会附带",
+                        "default": "卡片+文本同条发送"
+                    },
+                    "custom_font": {
+                        "description": "自定义字体路径",
+                        "type": "string",
+                        "hint": "留空使用内置字体（恒宋云朗黑体）；支持 .ttf/.otf/.ttc",
+                        "default": ""
+                    },
+                    "theme": {
+                        "description": "卡片主题",
+                        "type": "string",
+                        "options": [
+                            "深色",
+                            "浅色"
+                        ],
+                        "hint": "深色 = 深海军蓝渐变；浅色 = 明亮渐变",
+                        "default": "深色"
+                    },
+                    "layout": {
+                        "description": "卡片布局",
+                        "type": "string",
+                        "options": [
+                            "标准",
+                            "杂志",
+                            "沉浸式",
+                            "信息流"
+                        ],
+                        "hint": "标准 = 顶部全宽横幅；杂志 = 左封面右信息；沉浸式 = 全幅背景；信息流 = 紧凑列表",
+                        "default": "标准"
+                    },
+                    "width": {
+                        "description": "卡片宽度",
+                        "type": "int",
+                        "hint": "范围 520-1080 像素",
+                        "default": 800
+                    },
+                    "cover_full_size": {
+                        "description": "封面全尺寸",
+                        "type": "bool",
+                        "hint": "开启后按封面原始宽高比展示（不裁切为固定高度）",
+                        "default": false
+                    },
+                    "show_play_button": {
+                        "description": "封面播放按钮",
+                        "type": "bool",
+                        "hint": "开启后在视频封面中央显示播放按钮",
+                        "default": false
+                    }
+                }
+            },
             "hot_comments": {
                 "description": "附加内容：热评",
                 "type": "object",

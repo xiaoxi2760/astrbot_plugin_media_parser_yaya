@@ -1,5 +1,7 @@
 """消息发送封装，统一不同会话场景下的发送行为。"""
 
+import os
+
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -61,6 +63,35 @@ class MessageSender:
         except Exception as exc:
             logger.warning(f"发送部分失败提示失败: {exc}")
 
+    async def send_rendered_cards(
+        self,
+        event: AstrMessageEvent,
+        metadata_list: Optional[List[dict]],
+    ) -> List[str]:
+        """Send rendered cards as standalone messages before media output."""
+        card_paths = []
+        for metadata in metadata_list or []:
+            if not isinstance(metadata, dict):
+                continue
+            card_path = str(metadata.get("_card_file_path") or "").strip()
+            if not card_path or not os.path.isfile(card_path):
+                continue
+
+            # Keep the path for cleanup even when the platform rejects the
+            # message after the image has been constructed.
+            card_paths.append(card_path)
+            try:
+                card_image = Image.fromFileSystem(card_path)
+                await event.send(event.chain_result([card_image]))
+                metadata["_card_sent_separately"] = True
+            except Exception as e:
+                metadata["_card_sent_separately"] = False
+                logger.warning(
+                    f"卡片独立发送失败: {card_path}, 错误: {e}"
+                )
+        return card_paths
+
+
     def get_sender_info(self, event: AstrMessageEvent) -> tuple:
         """获取发送者信息
 
@@ -70,7 +101,7 @@ class MessageSender:
         Returns:
             包含发送者名称和ID的元组 (sender_name, sender_id)
         """
-        sender_name = "视频解析bot"
+        sender_name = "娅娅"
         platform = event.get_platform_name()
         sender_id = event.get_self_id()
         if platform not in ("wechatpadpro", "webchat", "gewechat"):

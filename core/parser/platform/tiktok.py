@@ -580,16 +580,41 @@ class TikTokParser(ShortVideoParserMixin, BaseVideoParser):
         nickname = (
             author_info.get("nickname") or (oembed_info or {}).get("author_name") or ""
         )
+        avatar_url = self._extract_avatar_url(author_info)
 
         image_url_lists = self._extract_tiktok_image_url_lists(item_info)
         is_gallery = bool(image_url_lists)
+        video_info = item_info.get("video") or {}
         video_url_list: List[str] = []
         if not is_gallery:
-            video_url_list = self._extract_tiktok_video_url_list(
-                item_info.get("video") or {}
-            )
+            video_url_list = self._extract_tiktok_video_url_list(video_info)
         if not video_url_list and not image_url_lists:
             return None
+
+        video_cover_urls: List[List[str]] = []
+        if not is_gallery:
+            cover_urls: List[str] = []
+            self._extend_unique_urls(
+                cover_urls,
+                self._extract_nested_http_urls(video_info.get("cover"))
+            )
+            self._extend_unique_urls(
+                cover_urls,
+                self._extract_nested_http_urls(video_info.get("dynamicCover"))
+            )
+            self._extend_unique_urls(
+                cover_urls,
+                self._extract_nested_http_urls(video_info.get("originCover"))
+            )
+            for bitrate_info in video_info.get("bitrateInfo") or []:
+                self._extend_unique_urls(
+                    cover_urls,
+                    self._extract_nested_http_urls(
+                        (bitrate_info or {}).get("cover")
+                    )
+                )
+            if cover_urls:
+                video_cover_urls.append(cover_urls)
 
         share_meta = (
             detail_data.get("shareMeta") if isinstance(detail_data, dict) else {}
@@ -605,10 +630,12 @@ class TikTokParser(ShortVideoParserMixin, BaseVideoParser):
         return {
             "title": title,
             "author": self._build_tiktok_author(nickname, unique_id),
+            "avatar_url": avatar_url,
             "timestamp": self._format_timestamp(
                 item_info.get("createTime") or item_info.get("create_time")
             ),
             "video_url_list": video_url_list,
+            "video_cover_urls": video_cover_urls,
             "image_url_lists": image_url_lists,
             "is_gallery": is_gallery,
             "display_url": self._build_tiktok_display_url(
@@ -797,6 +824,7 @@ class TikTokParser(ShortVideoParserMixin, BaseVideoParser):
             video_url_list = result.get("video_url_list") or []
             title = result.get("title", "")
             author = result.get("author", "")
+            avatar_url = result.get("avatar_url", "")
             timestamp = result.get("timestamp", "")
             display_url = result.get("display_url", url)
             user_agent = result.get("user_agent", TIKTOK_USER_AGENT)
@@ -814,6 +842,7 @@ class TikTokParser(ShortVideoParserMixin, BaseVideoParser):
                     "url": display_url,
                     "title": title,
                     "author": author,
+                    "avatar_url": avatar_url,
                     "desc": "",
                     "timestamp": timestamp,
                     "platform": "tiktok",
@@ -833,6 +862,7 @@ class TikTokParser(ShortVideoParserMixin, BaseVideoParser):
                 "url": display_url,
                 "title": title,
                 "author": author,
+                "avatar_url": avatar_url,
                 "desc": "",
                 "timestamp": timestamp,
                 "platform": "tiktok",

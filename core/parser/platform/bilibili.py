@@ -36,6 +36,8 @@ SS_PATH_RE = re.compile(r"/bangumi/play/ss(\d+)", re.IGNORECASE)
 SS_QS_RE = re.compile(r"(?:^|[?&])season_id=(\d+)", re.IGNORECASE)
 OPUS_RE = re.compile(r"/opus/(\d+)", re.IGNORECASE)
 T_BILIBILI_PATH_RE = re.compile(r"^/(\d+)(?:/|$)")
+DYNAMIC_RE = re.compile(r"(?:/dynamic/|/dynamic_detail/)(\d+)", re.IGNORECASE)
+
 BV_TABLE = "FcwAPNKTMug3GV5Lj7EJnHpWsx4tb8haYeviqBz6rkCy12mUSDQX9RdoZf"
 XOR_CODE = 23442827791579
 MAX_AID = 1 << 51
@@ -183,6 +185,41 @@ def av2bv(av: int) -> str:
     bytes_arr[3], bytes_arr[9] = bytes_arr[9], bytes_arr[3]
     bytes_arr[4], bytes_arr[7] = bytes_arr[7], bytes_arr[4]
     return "".join(bytes_arr)
+
+
+_STAT_ITEMS = (
+    ("like", "👍"),     # 👍
+    ("coin", "🪙"),     # 🪙
+    ("favorite", "⭐"),     # ⭐
+    ("share", "↩️"),  # ↩️
+    ("reply", "💬"),    # 💬
+    ("view", "👀"),     # 👀
+    ("danmaku", "💭"),  # 💭
+)
+
+
+def _format_count(value) -> str:
+    """把播放/点赞等数量格式化为紧凑中文（如 1.2万、8000）。"""
+    try:
+        n = int(value or 0)
+    except (TypeError, ValueError):
+        return "0"
+    if n >= 10000:
+        text = f"{n / 10000:.1f}万"
+        return text[:-1] if text.endswith(".0万") else text
+    return str(n)
+
+
+def build_bili_stats_line(stat) -> str:
+    """把 B 站 stat 统计对象拼成渲染用的统计行（emoji + 数值）。"""
+    if not stat or not isinstance(stat, dict):
+        return ""
+    parts = []
+    for key, icon in _STAT_ITEMS:
+        value = _format_count(stat.get(key))
+        if value != "0":
+            parts.append(f"{icon} {value}")
+    return " ".join(parts)
 
 
 class BilibiliParser(BaseVideoParser):
@@ -596,6 +633,9 @@ class BilibiliParser(BaseVideoParser):
         if hostname == T_BILIBILI_HOST:
             logger.debug(f"[{self.name}] can_parse: 匹配动态链接 {url}")
             return True
+        if DYNAMIC_RE.search(url):
+            logger.debug(f"[{self.name}] can_parse: 匹配动态链接 {url}")
+            return True
 
         if BV_RE.search(url):
             logger.debug(f"[{self.name}] can_parse: 匹配BV号 {url}")
@@ -737,6 +777,19 @@ class BilibiliParser(BaseVideoParser):
                 opus_url = f"https://www.bilibili.com/opus/{opus_id}"
                 result_links_set.add(opus_url)
 
+        dynamic_pattern = (
+            rf'https?://(?:www|m|mobile)\.bilibili\.com/dynamic/'
+            rf'(\d+)[^\s<>"\'()]*'
+        )
+        dynamic_matches = re.finditer(dynamic_pattern, text, re.IGNORECASE)
+        for match in dynamic_matches:
+            dynamic_id = match.group(1)
+            dynamic_key = f"DYNAMIC:{dynamic_id}"
+            if dynamic_key not in seen_ids:
+                seen_ids.add(dynamic_key)
+                dynamic_url = f"https://m.bilibili.com/dynamic/{dynamic_id}"
+                result_links_set.add(dynamic_url)
+
         t_bilibili_pattern = (
             r"https?://t\.bilibili\.com/"
             r'(\d+)[^\s<>"\'()]*'
@@ -871,7 +924,12 @@ class BilibiliParser(BaseVideoParser):
 
         if not _is_trusted_bilibili_host(parsed.hostname or ""):
             return None
+        match = DYNAMIC_RE.search(url)
+        if match:
+            return match.group(1)
+
         match = OPUS_RE.search(parsed.path)
+
         if match:
             return match.group(1)
         return None
@@ -926,6 +984,21 @@ class BilibiliParser(BaseVideoParser):
             return f"https:{text}"
         return text
 
+    @classmethod
+    def _cover_candidates(cls, value: Any) -> List[str]:
+        """Normalize Bilibili cover URLs and add alternate image CDN hosts."""
+        url = cls._normalize_bilibili_url(value)
+        if not url:
+            return []
+        candidates = [url]
+        match = re.match(r"(https?://)i\d+\.hdslb\.com(/.*)", url, re.I)
+        if match:
+            for host_index in (0, 1, 2, 3, 5, 7):
+                candidate = f"{match.group(1)}i{host_index}.hdslb.com{match.group(2)}"
+                if candidate not in candidates:
+                    candidates.append(candidate)
+        return candidates
+
     @staticmethod
     def _format_timestamp(ts: Any) -> str:
         """将 B 站秒级时间戳格式化为日期文本。"""
@@ -933,7 +1006,9 @@ class BilibiliParser(BaseVideoParser):
             return ""
         try:
             ts_int = int(ts)
-            return datetime.fromtimestamp(ts_int).strftime("%Y-%m-%d")
+            return datetime.fromtimestamp(ts_int).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         except (ValueError, TypeError, OSError):
             return str(ts)
 
@@ -1006,6 +1081,16 @@ class BilibiliParser(BaseVideoParser):
             return self._format_timestamp(ts)
         pub_time = str(author_obj.get("pub_time", "") or "").strip()
         return pub_time
+
+    def _extract_polymer_avatar(
+        self,
+        modules: Dict[str, Any]
+    ) -> str:
+        """从 polymer 动态结构中提取作者头像。"""
+        author_obj = modules.get("module_author") or {}
+        if not isinstance(author_obj, dict):
+            return ""
+        return self._normalize_bilibili_url(author_obj.get("face"))
 
     @staticmethod
     def _extract_polymer_comment_subject(
@@ -1261,6 +1346,8 @@ class BilibiliParser(BaseVideoParser):
                 "author": final_author,
                 "desc": final_desc,
                 "timestamp": final_timestamp,
+                "avatar_url": video_result.get("avatar_url", ""),
+                "video_cover_urls": video_result.get("video_cover_urls", []),
                 "video_urls": self._add_range_prefix_to_video_urls(
                     video_result.get("video_urls", [])
                 ),
@@ -1315,6 +1402,8 @@ class BilibiliParser(BaseVideoParser):
             "author": author,
             "desc": desc,
             "timestamp": timestamp,
+            "avatar_url": self._extract_polymer_avatar(modules),
+            "video_cover_urls": [],
             "video_urls": [],
             "image_urls": image_urls,
             "image_headers": image_headers,
@@ -1442,11 +1531,16 @@ class BilibiliParser(BaseVideoParser):
         else:
             author = ""
 
+        cover_urls = self._cover_candidates(data.get("pic"))
+        avatar_url = self._normalize_bilibili_url(owner.get("face"))
+
+
         timestamp = ""
         pubdate = data.get("pubdate")
         if pubdate:
             dt = datetime.fromtimestamp(int(pubdate))
-            timestamp = dt.strftime("%Y-%m-%d")
+            timestamp = dt.strftime("%Y-%m-%d %H:%M:%S")
+
 
         rights = data.get("rights") or {}
         aid_value = data.get("aid")
@@ -1458,7 +1552,11 @@ class BilibiliParser(BaseVideoParser):
             "title": title,
             "desc": desc,
             "author": author,
+            "avatar_url": avatar_url,
             "timestamp": timestamp,
+            "video_cover_urls": [cover_urls] if cover_urls else [],
+            "stats": data.get("stat") or {},
+            "stats_line": build_bili_stats_line(data.get("stat")),
             "aid": aid_value,
             "content_access_type_hint": (
                 "charge_exclusive"
@@ -1535,7 +1633,7 @@ class BilibiliParser(BaseVideoParser):
             pub_time = ep_obj.get("pub_time")
             if pub_time:
                 dt = datetime.fromtimestamp(int(pub_time))
-                timestamp = dt.strftime("%Y-%m-%d")
+                timestamp = dt.strftime("%Y-%m-%d %H:%M:%S")
 
         aid_value = None
         if isinstance(ep_obj, dict):
@@ -1552,6 +1650,17 @@ class BilibiliParser(BaseVideoParser):
             "desc": desc,
             "author": author,
             "timestamp": timestamp,
+            "avatar_url": self._normalize_bilibili_url(
+                (up_info or {}).get("face") if isinstance(up_info, dict) else ""
+            ),
+            "video_cover_urls": [
+                self._cover_candidates(
+                    (ep_obj or {}).get("cover") or
+                    (ep_obj or {}).get("cover_url")
+                )
+            ] if (ep_obj or {}).get("cover") or (ep_obj or {}).get("cover_url") else [],
+            "stats": result.get("stat") or {},
+            "stats_line": build_bili_stats_line(result.get("stat")),
             "aid": aid_value,
         }
 
@@ -2304,7 +2413,7 @@ class BilibiliParser(BaseVideoParser):
                 try:
                     ts_int = int(ts)
                     dt = datetime.fromtimestamp(ts_int)
-                    timestamp = dt.strftime("%Y-%m-%d")
+                    timestamp = dt.strftime("%Y-%m-%d %H:%M:%S")
                 except (ValueError, TypeError, OSError):
                     timestamp = str(ts)
 
@@ -2379,7 +2488,9 @@ class BilibiliParser(BaseVideoParser):
                         try:
                             ts_int = int(ts_value)
                             dt = datetime.fromtimestamp(ts_int)
-                            origin_timestamp = dt.strftime("%Y-%m-%d")
+                            origin_timestamp = dt.strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            )
                         except (ValueError, TypeError, OSError):
                             origin_timestamp = str(ts_value)
 
@@ -2432,9 +2543,11 @@ class BilibiliParser(BaseVideoParser):
                     "author": final_author,
                     "desc": final_desc,
                     "timestamp": final_timestamp,
+                    "video_cover_urls": video_result.get("video_cover_urls", []),
                     "video_urls": self._add_range_prefix_to_video_urls(
                         video_result.get("video_urls", [])
                     ),
+
                     "image_urls": video_result.get("image_urls", []),
                     "image_headers": image_headers,
                     "video_headers": video_headers,
@@ -2481,9 +2594,11 @@ class BilibiliParser(BaseVideoParser):
                     "author": author,
                     "desc": final_desc,
                     "timestamp": timestamp,
+                    "video_cover_urls": video_result.get("video_cover_urls", []),
                     "video_urls": self._add_range_prefix_to_video_urls(
                         video_result.get("video_urls", [])
                     ),
+
                     "image_urls": video_result.get("image_urls", []),
                     "image_headers": image_headers,
                     "video_headers": video_headers,
@@ -2636,10 +2751,16 @@ class BilibiliParser(BaseVideoParser):
             )
             raise SkipParse("直播域名链接不解析")
 
-        if _is_bilibili_opus_url(page_url) or _is_t_bilibili_url(page_url):
+        if (
+            _is_bilibili_opus_url(page_url)
+            or _is_t_bilibili_url(page_url)
+            or DYNAMIC_RE.search(page_url)
+        ):
             logger.debug(
                 f"[{self.name}] parse_bilibili_minimal: 检测到动态链接，使用动态解析器"
             )
+
+
             return await self.parse_opus(
                 page_url,
                 session,
@@ -2653,7 +2774,9 @@ class BilibiliParser(BaseVideoParser):
         vtype, ident = self.detect_target(page_url)
         if not vtype:
             raise RuntimeError(f"无法识别视频类型: {url}")
+        bvid: Optional[str] = None
         access_info: Dict[str, Any] = {}
+        cover_urls = []
         comment_oid: Optional[int] = None
         comment_type = 1
         if vtype == "ugc":
@@ -2694,7 +2817,25 @@ class BilibiliParser(BaseVideoParser):
             )
             if p_index > len(pages):
                 raise RuntimeError(f"分P序号超出范围: {p_index}")
-            cid = pages[p_index - 1]["cid"]
+            page = pages[p_index - 1]
+            cid = page["cid"]
+            cover_urls = []
+            cover_values: List[Any] = []
+            for group in info.get("video_cover_urls") or []:
+                if isinstance(group, str) and group:
+                    cover_values.append(group)
+                else:
+                    cover_values.extend(group if isinstance(group, list) else [])
+            cover_values.extend([
+                info.get("pic"),
+                page.get("cover"),
+                page.get("first_frame"),
+                page.get("firstFrame"),
+            ])
+            for cover_value in cover_values:
+                for candidate in self._cover_candidates(cover_value):
+                    if candidate not in cover_urls:
+                        cover_urls.append(candidate)
             access_info = await self._analyze_target_access(
                 vtype="ugc",
                 referer=page_url,
@@ -2734,6 +2875,11 @@ class BilibiliParser(BaseVideoParser):
             info = await self.get_pgc_info_by_ep(
                 ep_id, session, cookie_header=cookie_header
             )
+            cover_urls = []
+            for group in info.get("video_cover_urls", []) or []:
+                for candidate in group if isinstance(group, list) else []:
+                    if candidate not in cover_urls:
+                        cover_urls.append(candidate)
             comment_oid_raw = info.get("aid")
             try:
                 comment_oid = (
@@ -2795,10 +2941,15 @@ class BilibiliParser(BaseVideoParser):
             )
             result = {
                 "url": original_url if _is_b23_url(original_url) else page_url,
+                "bvid": bvid,
+
                 "title": info.get("title", ""),
                 "author": info.get("author", ""),
                 "desc": info.get("desc", ""),
                 "timestamp": info.get("timestamp", ""),
+                "avatar_url": info.get("avatar_url", ""),
+                "stats_line": info.get("stats_line", ""),
+                "video_cover_urls": [cover_urls] if cover_urls else [],
                 "video_urls": [],
                 "image_urls": [],
                 "image_headers": image_headers,
@@ -2831,10 +2982,14 @@ class BilibiliParser(BaseVideoParser):
         )
         result = {
             "url": display_url,
+            "bvid": bvid,
             "title": info.get("title", ""),
             "author": info.get("author", ""),
             "desc": info.get("desc", ""),
             "timestamp": info.get("timestamp", ""),
+            "avatar_url": info.get("avatar_url", ""),
+            "stats_line": info.get("stats_line", ""),
+            "video_cover_urls": [cover_urls] if cover_urls else [],
             "video_urls": self._add_range_prefix_to_video_urls([[direct_url]]),
             "image_urls": [],
             "image_headers": image_headers,

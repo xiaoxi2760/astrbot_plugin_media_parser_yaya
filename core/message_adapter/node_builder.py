@@ -508,7 +508,23 @@ def _build_node_parts_for_link(
     )
     text_nodes = _split_plain_node(text_node)
     hot_comments_nodes = _split_plain_node(hot_comments_node)
-    nodes.extend(text_nodes)
+    card_sent_separately = bool(
+        metadata.get("_card_sent_separately", False)
+    )
+    if card_sent_separately:
+        include_text = metadata.get("_card_include_text", True)
+        drop_text = metadata.get("_card_drop_text", False)
+        if not include_text and not drop_text:
+            nodes.extend(text_nodes)
+        elif drop_text and (
+            text_metadata_field_enabled(metadata, "original_link")
+            and metadata.get("url")
+        ):
+            nodes.append(Plain(f"原始链接：{metadata['url']}"))
+    else:
+        # Rendering or sending the card failed; retain the normal text
+        # fallback instead of silently dropping metadata.
+        nodes.extend(text_nodes)
     nodes.extend(hot_comments_nodes)
     nodes.extend(media_nodes)
 

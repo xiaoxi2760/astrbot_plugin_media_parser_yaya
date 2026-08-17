@@ -433,7 +433,9 @@ class XianyuParser(BaseVideoParser):
             timestamp = int(timestamp_value)
             if timestamp > 10**12:
                 timestamp //= 1000
-            return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d")
+            return datetime.fromtimestamp(timestamp).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         except (TypeError, ValueError, OSError):
             return ""
 
@@ -695,6 +697,7 @@ class XianyuParser(BaseVideoParser):
             "url": source_url,
             "title": title,
             "author": author,
+            "avatar_url": self._extract_avatar_url(detail_data),
             "desc": self._build_description(detail_data),
             "timestamp": timestamp,
             "video_urls": video_urls,

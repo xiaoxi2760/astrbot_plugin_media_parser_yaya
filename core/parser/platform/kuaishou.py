@@ -136,14 +136,14 @@ class KuaishouParser(BaseVideoParser):
             match = re.search(r"/(\d{4})/(\d{2})/(\d{2})/", url)
             if match:
                 year, month, day = match.groups()
-                return f"{year}-{month}-{day}"
-            match = re.search(r"_(\d{11,13})_", url)
+                return f"{year}-{month}-{day} 00:00:00"
+            match = re.search(r'_(\d{11,13})_', url)
             if match:
                 timestamp = int(match.group(1))
                 if len(match.group(1)) == 13:
                     timestamp = timestamp // 1000
                 dt = datetime.fromtimestamp(timestamp)
-                return dt.strftime("%Y-%m-%d")
+                return dt.strftime('%Y-%m-%d %H:%M:%S')
         except Exception:
             pass
         return None
@@ -181,9 +181,10 @@ class KuaishouParser(BaseVideoParser):
             包含userName、userId、caption的字典
         """
         metadata: Dict[str, Optional[str]] = {
-            "userName": None,
-            "userId": None,
-            "caption": None,
+            'userName': None,
+            'userId': None,
+            'caption': None,
+            'avatar_url': None,
         }
 
         init_state = self._get_init_state(html)
@@ -199,9 +200,13 @@ class KuaishouParser(BaseVideoParser):
                         except (json.JSONDecodeError, ValueError):
                             photo = None
                 if isinstance(photo, dict):
-                    metadata["userName"] = metadata["userName"] or photo.get("userName")
-                    metadata["caption"] = metadata["caption"] or photo.get("caption")
-                    uid = photo.get("userId")
+                    metadata['userName'] = metadata['userName'] or photo.get('userName')
+                    metadata['caption'] = metadata['caption'] or photo.get('caption')
+                    metadata['avatar_url'] = (
+                        metadata['avatar_url'] or
+                        self._extract_avatar_url(photo)
+                    )
+                    uid = photo.get('userId')
                     if uid is not None:
                         metadata["userId"] = str(uid)
 
@@ -663,7 +668,9 @@ class KuaishouParser(BaseVideoParser):
                 try:
                     if ts > 1e12:
                         ts = int(ts) // 1000
-                    return datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d")
+                    return datetime.fromtimestamp(int(ts)).strftime(
+                        '%Y-%m-%d %H:%M:%S'
+                    )
                 except (ValueError, OSError):
                     pass
         if fallback_url:
@@ -699,6 +706,11 @@ class KuaishouParser(BaseVideoParser):
             if len(title) > 100:
                 title = title[:100]
             image_headers, video_headers = self._make_headers()
+            avatar_url = str(
+                metadata.get('avatar_url') or
+                self._extract_avatar_url(html)
+                or ''
+            ).strip()
 
             # --- 优先尝试从 INIT_STATE 结构化数据解析 ---
             ssr = self._parse_init_state_data(html)
@@ -711,6 +723,7 @@ class KuaishouParser(BaseVideoParser):
                         "url": url,
                         "title": title,
                         "author": author,
+                        "avatar_url": avatar_url or self._extract_avatar_url(photo),
                         "desc": "",
                         "timestamp": self._extract_timestamp_from_photo(photo, vurl),
                         "video_urls": [[vurl]],
@@ -733,6 +746,7 @@ class KuaishouParser(BaseVideoParser):
                             "url": url,
                             "title": title or "快手图集",
                             "author": author,
+                            "avatar_url": avatar_url or self._extract_avatar_url(photo),
                             "desc": "",
                             "timestamp": self._extract_timestamp_from_photo(
                                 photo, first_url
@@ -752,6 +766,7 @@ class KuaishouParser(BaseVideoParser):
                     "url": url,
                     "title": title,
                     "author": author,
+                    "avatar_url": avatar_url,
                     "desc": "",
                     "timestamp": upload_time or "",
                     "video_urls": [[video_url]],
@@ -777,6 +792,7 @@ class KuaishouParser(BaseVideoParser):
                         "url": url,
                         "title": title or "快手图集",
                         "author": author,
+                        "avatar_url": avatar_url,
                         "desc": "",
                         "timestamp": upload_time or "",
                         "video_urls": [],
@@ -798,6 +814,7 @@ class KuaishouParser(BaseVideoParser):
                             "url": url,
                             "title": title,
                             "author": author,
+                            "avatar_url": avatar_url or self._extract_avatar_url(rawdata),
                             "desc": "",
                             "timestamp": upload_time or "",
                             "video_urls": [[video_url]],
@@ -833,6 +850,7 @@ class KuaishouParser(BaseVideoParser):
                                 "url": url,
                                 "title": title or "快手图集",
                                 "author": author,
+                                "avatar_url": avatar_url or self._extract_avatar_url(rawdata),
                                 "desc": "",
                                 "timestamp": upload_time or "",
                                 "video_urls": [],
