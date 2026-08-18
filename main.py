@@ -44,7 +44,7 @@ from .core.interaction.platform.bilibili import BilibiliAdminCookieAssistManager
     "astrbot_plugin_media_parser",
     "xiaoxi2760",
     "娅娅视频解析 - 聚合解析流媒体平台链接，转换为媒体直链发送",
-    "7.0.0",
+    "7.0.1",
 )
 class VideoParserPlugin(Star):
     def __init__(self, context: Context, config: dict):
