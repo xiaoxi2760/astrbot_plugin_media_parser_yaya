@@ -397,6 +397,21 @@ class XiaohongshuParser(BaseVideoParser):
         return re.sub(pattern, r"#\1", text)
 
     @staticmethod
+    def _build_no_watermark_url(url: str) -> str:
+        # 从带鉴权的 webpic 链接构造可公开访问的无水印原图链接
+        # sns-webpic-qc 为鉴权 CDN 且部分场景会叠加平台水印；
+        # sns-img-hw/bd/qc 与 ci.xiaohongshu.com 为公开原图 CDN。
+        if 'sns-webpic' not in url and 'sns-img' not in url:
+            return url
+        match = re.search(r'((?:notes_pre_post/)?1040g[^!?]+)', url)
+        if not match:
+            return url
+        file_id = match.group(1)
+        if not file_id.startswith('notes_pre_post/'):
+            return url
+        return f'https://sns-img-hw.xhscdn.com/{file_id}?imageView2/2/w/1080/format/jpg'
+
+    @staticmethod
     def _extract_compatible_video_url(stream: Any) -> str:
         """优先选择 H.264，缺失时回退到其他编码的最高质量流。"""
         if not isinstance(stream, dict):
@@ -540,7 +555,7 @@ class XiaohongshuParser(BaseVideoParser):
                                     url = "https:" + url
                                 elif url.startswith("http://"):
                                     url = url.replace("http://", "https://", 1)
-                                image_urls.append(url)
+                                image_urls.append([self._build_no_watermark_url(url), url])
 
         desc = self._clean_topic_tags(desc)
 
@@ -859,7 +874,7 @@ class XiaohongshuParser(BaseVideoParser):
                     "desc": desc,
                     "timestamp": publish_time,
                     "video_urls": [],
-                    "image_urls": [[url] for url in image_urls],
+                    "image_urls": image_urls,
                     "image_headers": image_headers,
                     "video_headers": video_headers,
                 }
