@@ -49,7 +49,20 @@ async def render_card_rika(
             cover_full_size=cover_full_size,
             show_play_button=show_play_button,
         )
-        key = cache_key or str(metadata.get("url") or "")
+        url_key = str(metadata.get("url") or "")
+        parts = [url_key]
+        _a = str(metadata.get("avatar_url") or "")
+        if _a:
+            parts.append("a:" + _a)
+        _covers = metadata.get("video_cover_urls") or []
+        if _covers:
+            _c = _covers[0]
+            parts.append("c:" + str(_c[0] if isinstance(_c, list) else _c))
+        _images = metadata.get("image_urls") or []
+        if _images:
+            _i = _images[0]
+            parts.append("i:" + str(_i[0] if isinstance(_i, list) else _i))
+        key = cache_key or "|".join(parts)
         return await renderer.render(result, cache_key=key)
     except Exception as e:
         logger.warning(f"rika 卡片渲染失败: {metadata.get('url', '')}, 错误: {e}")

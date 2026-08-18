@@ -507,6 +507,7 @@ class XiaohongshuParser(BaseVideoParser):
         if user_data:
             author_name = user_data.get("nickName") or user_data.get("nickname", "")
             author_id = user_data.get("userId", "")
+            avatar_url = user_data.get("avatar") or user_data.get("avatarUrl") or ""
 
         timestamp = note_data.get("time", 0)
         if timestamp:
@@ -565,6 +566,7 @@ class XiaohongshuParser(BaseVideoParser):
             "desc": desc,
             "author_name": author_name,
             "author_id": author_id,
+            "avatar_url": avatar_url,
             "publish_time": publish_time,
             "video_url": video_url,
             "image_urls": image_urls,
@@ -849,6 +851,7 @@ class XiaohongshuParser(BaseVideoParser):
                     "url": url,
                     "title": title,
                     "author": author,
+                    "avatar_url": note_data.get("avatar_url", ""),
                     "desc": desc,
                     "timestamp": publish_time,
                     "video_urls": [[video_url]],
@@ -871,6 +874,7 @@ class XiaohongshuParser(BaseVideoParser):
                     "url": url,
                     "title": title,
                     "author": author,
+                    "avatar_url": note_data.get("avatar_url", ""),
                     "desc": desc,
                     "timestamp": publish_time,
                     "video_urls": [],
