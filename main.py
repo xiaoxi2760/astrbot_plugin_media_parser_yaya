@@ -460,8 +460,6 @@ class VideoParserPlugin(Star):
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    @staticmethod
-
     async def _process_and_send_metadata(
         self,
         *,
