@@ -178,21 +178,36 @@ def build_parse_result(
         extra["duration"] = duration
 
     is_video = bool(video_urls) or bool(metadata.get("video_cover_only"))
-    image_paths: List[Path] = []
+    image_contents: List[ImageContent] = []
     for idx, url_list in enumerate(image_urls):
         if not url_list or not isinstance(url_list, list):
             continue
+        task = None
         file_idx = video_count + idx
         if file_idx < len(file_paths) and file_paths[file_idx]:
-            p = Path(file_paths[file_idx])
-            if p.is_file():
-                image_paths.append(p)
+            task = _as_local_path_task(str(file_paths[file_idx]))
+        if task is None:
+            candidates = [u for u in url_list if isinstance(u, str) and u.strip()]
+            if candidates:
+                from .downloader import download_first_to_cache
+
+                save_path.mkdir(parents=True, exist_ok=True)
+                task = PathTask(
+                    download_first_to_cache(
+                        candidates,
+                        cache_dir=save_path,
+                        metadata=metadata,
+                        kind="image",
+                    )
+                )
+        if task is not None:
+            image_contents.append(ImageContent(path_task=task))
 
     if is_video:
         # 视频：只需封面做 hero
-        video_task = cover_task or _as_local_path_task(
-            file_paths[0] if file_paths else None
-        )
+        video_task = cover_task
+        if video_task is None and image_contents:
+            video_task = image_contents[0].path_task
         contents.append(
             VideoContent(
                 path_task=video_task,
@@ -201,9 +216,8 @@ def build_parse_result(
             )
         )
         extra["content_type"] = "视频"
-    elif image_paths:
-        for p in image_paths:
-            contents.append(ImageContent(path_task=_as_local_path_task(str(p))))
+    elif image_contents:
+        contents.extend(image_contents)
         extra["content_type"] = "图文"
     elif video_count:
         contents.append(

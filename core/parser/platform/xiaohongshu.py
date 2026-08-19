@@ -517,6 +517,7 @@ class XiaohongshuParser(BaseVideoParser):
             publish_time = ""
 
         video_url = ""
+        video_cover_url = ""
         image_urls = []
 
         if note_type == "video":
@@ -525,6 +526,21 @@ class XiaohongshuParser(BaseVideoParser):
                 media = video_info["media"]
                 if "stream" in media:
                     video_url = self._extract_compatible_video_url(media["stream"])
+            cover_obj = video_info.get("cover") if isinstance(video_info, dict) else None
+            if isinstance(cover_obj, dict):
+                for key in ("urlDefault", "url", "url_pre", "urlPre", "url_default"):
+                    candidate = cover_obj.get(key)
+                    if isinstance(candidate, str) and candidate.strip():
+                        video_cover_url = candidate.strip()
+                        break
+            elif isinstance(cover_obj, str) and cover_obj.strip():
+                video_cover_url = cover_obj.strip()
+            if video_cover_url:
+                if video_cover_url.startswith("//"):
+                    video_cover_url = "https:" + video_cover_url
+                elif video_cover_url.startswith("http://"):
+                    video_cover_url = video_cover_url.replace("http://", "https://", 1)
+                video_cover_url = self._build_no_watermark_url(video_cover_url)
 
             if video_url and video_url.startswith("http://"):
                 video_url = video_url.replace("http://", "https://", 1)
@@ -569,6 +585,7 @@ class XiaohongshuParser(BaseVideoParser):
             "avatar_url": avatar_url,
             "publish_time": publish_time,
             "video_url": video_url,
+            "video_cover_url": video_cover_url,
             "image_urls": image_urls,
         }
 
@@ -818,6 +835,7 @@ class XiaohongshuParser(BaseVideoParser):
 
             note_type = note_data.get("type", "normal")
             video_url = note_data.get("video_url", "")
+            video_cover_url = note_data.get("video_cover_url", "")
             image_urls = note_data.get("image_urls", [])
             title = note_data.get("title", "")
             desc = note_data.get("desc", "")
@@ -855,6 +873,7 @@ class XiaohongshuParser(BaseVideoParser):
                     "desc": desc,
                     "timestamp": publish_time,
                     "video_urls": [[video_url]],
+                    "video_cover_urls": [[video_cover_url]] if video_cover_url else [],
                     "image_urls": [],
                     "image_headers": image_headers,
                     "video_headers": video_headers,
