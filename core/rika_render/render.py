@@ -21,6 +21,7 @@ import asyncio
 import math
 import re
 import sys
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -60,6 +61,7 @@ _EMOJI_RE = re.compile(
     "\U0001F900-\U0001F9FF"    # 补充符号与图案
     "\U0001FA00-\U0001FA6F"    # 国际象棋符号
     "\U0001FA70-\U0001FAFF"    # 符号扩展
+    "\U0001D400-\U0001D7FF"    # 数学字母数字符号（花体昵称）
     "\U00002600-\U000026FF"    # 杂项符号
     "\U00002700-\U000027BF"    # 装饰符号
     "\U0000FE00-\U0000FE0F"    # 变体选择符
@@ -97,14 +99,16 @@ _STAT_LABELS = {
 
 
 # 卡片样式版本：视觉样式变化时 +1，使已缓存的旧卡片失效并重新渲染
-_CARD_STYLE_VERSION = "11"
+_CARD_STYLE_VERSION = "13"
 
 
 def strip_emoji(text: str | None) -> str:
     """移除字符串中的 emoji，避免字体缺失导致渲染成方块。"""
     if not text:
         return ""
-    cleaned = text.replace("\r\n", "\n").replace("\r", "\n")
+    # 兼容归一化：花体/数学字母昵称（如 𝑹𝒐𝒔𝒂𝒍𝒊𝒏𝒅）转回普通字母，避免渲染成方块
+    cleaned = unicodedata.normalize("NFKC", text)
+    cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
     cleaned = _EMOJI_RE.sub("", cleaned)
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
     return cleaned.strip()
